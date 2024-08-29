@@ -23,12 +23,12 @@ export class MultipartUploadService {
 
         this.config = {
             credentials: {
-                accessKeyId: configData.s3.accessKeyId || '',
-                secretAccessKey: configData.s3.secretAccessKey || '',
+                accessKeyId: configData.s3.accessKeyId,
+                secretAccessKey: configData.s3.secretAccessKey
             },
 
-            region: configData.s3.bucket_region || '',
-            s3_bucket: configData.s3.s3_bucket || '',
+            region: configData.s3.bucket_region,
+            s3_bucket: configData.s3.s3_bucket,
             expires: 3600
         };
 

@@ -9,10 +9,10 @@ const appData = {
 };
 
 const s3 = {
-    s3_bucket: process.env.AWS_S3_BUCKET, 
-    bucket_region: process.env.AWS_S3_BUCKET_REGION, 
-    accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID, 
-    secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY, 
+    s3_bucket: process.env.AWS_S3_BUCKET!, 
+    bucket_region: process.env.AWS_S3_BUCKET_REGION!, 
+    accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID!, 
+    secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY!, 
     expires: 3600
 }
 
