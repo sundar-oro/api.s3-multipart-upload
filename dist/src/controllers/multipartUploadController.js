@@ -9,6 +9,7 @@ const validationHelper_1 = require("../helpers/validationHelper");
 const uploadFileData_1 = require("../validations/uploadFileData");
 const getUrlsData_1 = require("../validations/getUrlsData");
 const completeUploadData_1 = require("../validations/completeUploadData");
+const abortUpload_1 = require("../validations/abortUpload");
 const multipartUploadService = new multipartUploadService_1.MultipartUploadService();
 class MultipartUploadController {
     async initializeMultipartUpload(c) {
@@ -36,7 +37,7 @@ class MultipartUploadController {
             const reqData = await c.req.json();
             const validatedData = await (0, validationHelper_1.default)(getUrlsData_1.getUrlsData, reqData);
             const uploadUrls = await multipartUploadService.multipartPresignedUrl(validatedData.file_key, validatedData.parts, validatedData.upload_id);
-            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.MULTIPART_UPLOAD_START, uploadUrls);
+            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.MULTIPART_UPLOAD_URLS, uploadUrls);
         }
         catch (error) {
             throw error;
@@ -46,8 +47,30 @@ class MultipartUploadController {
         try {
             const reqData = await c.req.json();
             const validatedData = await (0, validationHelper_1.default)(completeUploadData_1.completeUploadData, reqData);
-            const completedData = await multipartUploadService.completeMultipartUpload(validatedData.file_key, validatedData.upload_id, validatedData.parts);
-            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.MULTIPART_UPLOAD_START, completedData);
+            await multipartUploadService.completeMultipartUpload(validatedData.file_key, validatedData.upload_id, validatedData.parts);
+            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.MULTIPART_UPLOAD_SUCCESS);
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    async abortMultipartUpload(c) {
+        try {
+            const reqData = await c.req.json();
+            const validatedData = await (0, validationHelper_1.default)(abortUpload_1.abortUploadData, reqData);
+            await multipartUploadService.abortMultipartUpload(validatedData.file_key, validatedData.upload_id);
+            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.MULTIPART_UPLOAD_ABORTED);
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    async listIncompleteParts(c) {
+        try {
+            const reqData = await c.req.json();
+            const validatedData = await (0, validationHelper_1.default)(getUrlsData_1.getUrlsData, reqData);
+            const incompleteUploads = await multipartUploadService.listIncompleteParts(validatedData.file_key, validatedData.upload_id, validatedData.parts);
+            return (0, reponseHelper_1.sendSuccessResponse)(c, 200, appMessages_1.FETCHED_INCOMPLETE_PARTS, incompleteUploads);
         }
         catch (error) {
             throw error;

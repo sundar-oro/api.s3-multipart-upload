@@ -8,3 +8,5 @@ exports.multiPart = new hono_1.Hono();
 exports.multiPart.post("/start", multipartUploadController.initializeMultipartUpload.bind(multipartUploadController));
 exports.multiPart.post("/urls", multipartUploadController.getMultipartUploadUrls.bind(multipartUploadController));
 exports.multiPart.post("/complete", multipartUploadController.completeMultipartUpload.bind(multipartUploadController));
+exports.multiPart.post("/abort", multipartUploadController.abortMultipartUpload.bind(multipartUploadController));
+exports.multiPart.post("/list-incomplete-parts", multipartUploadController.listIncompleteParts.bind(multipartUploadController));

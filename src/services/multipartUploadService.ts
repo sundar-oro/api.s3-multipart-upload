@@ -1,7 +1,7 @@
-import { AbortMultipartUploadCommand, CompletedPart, CompleteMultipartUploadCommand, CreateMultipartUploadCommand, ListMultipartUploadsCommand, ListPartsCommand, S3Client, UploadPartCommand } from "@aws-sdk/client-s3";
+import { AbortMultipartUploadCommand, CompletedPart, CompleteMultipartUploadCommand, CreateMultipartUploadCommand, ListMultipartUploadsCommand, ListPartsCommand, S3Client, S3ServiceException, UploadPartCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { StatusCode } from "hono/utils/http-status";
 import configData from "../../config/app";
-import { FILED_TO_FETCH_INCOMPLETE_PARTS, MULTIPART_UPLOAD_ABORTED_FAILED, MULTIPART_UPLOAD_FAILED, MULTIPART_UPLOAD_START_FAILED, MULTIPART_UPLOAD_URLS_FAILED } from "../constants/appMessages";
 import S3Exception from "../exceptions/s3Exception";
 
 
@@ -42,18 +42,24 @@ export class MultipartUploadService {
             if (slug) {
                 key += `${slug}/`
             }
-            key += fileName
-            // Create a new multipart upload.
-            const multipartUpload = await this.client.send(
-                new CreateMultipartUploadCommand({
-                    Bucket: this.config.s3_bucket,
-                    Key: key
-                })
-            )
+            key += fileName;
 
-            return multipartUpload;
+            const input = {
+                Bucket: this.config.s3_bucket,
+                Key: key
+            }
+
+            const command = new CreateMultipartUploadCommand(input)
+            const response = await this.client.send(command)
+
+            return response;
+
         } catch (error: any) {
-            throw new S3Exception(MULTIPART_UPLOAD_START_FAILED, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
 
     }
@@ -77,66 +83,79 @@ export class MultipartUploadService {
             }
 
             return await Promise.all(urls);
+
         } catch (error: any) {
-            throw new S3Exception(MULTIPART_UPLOAD_URLS_FAILED, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
 
     }
 
     async completeMultipartUpload(fileKey: string, uploadId: string, uploadedParts: CompletedPart[]) {
-        const bucketName = this.config.s3_bucket
-        const key = fileKey;
-
         try {
-            // Complete the multipart upload.
-            const response = await this.client.send(
 
-                new CompleteMultipartUploadCommand({
+            const input = {
+                Bucket: this.config.s3_bucket,
+                Key: fileKey,
+                UploadId: uploadId,
+                MultipartUpload: {
+                    Parts: uploadedParts
+                }
+            }
 
-                    Bucket: bucketName,
-                    Key: key,
-                    UploadId: uploadId,
-                    MultipartUpload: {
-                        Parts: uploadedParts,
-                    }
-                })
-            )
+            const command = new CompleteMultipartUploadCommand(input);
+            const response = await this.client.send(command);
+
             return response;
 
         } catch (error: any) {
-            throw new S3Exception(MULTIPART_UPLOAD_FAILED, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
     }
 
     async abortMultipartUpload(filekey: string, uploadId: string) {
-        const bucketName = this.config.s3_bucket;
-        const key = filekey;
         try {
-            const abortCommand = new AbortMultipartUploadCommand({
-                Bucket: bucketName,
-                Key: key,
-                UploadId: uploadId,
-            });
 
-            await this.client.send(abortCommand);
+            const input = {
+                Bucket: this.config.s3_bucket,
+                Key: filekey,
+                UploadId: uploadId
+            }
+
+            const command = new AbortMultipartUploadCommand(input);
+            const response = await this.client.send(command);
+
+            return response;
         } catch (error: any) {
-            throw new S3Exception(MULTIPART_UPLOAD_ABORTED_FAILED, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
     }
 
     async listIncompleteParts(fileKey: string, uploadId: string, totalParts: number) {
         try {
 
-            const listPartsResponse: any = await this.client.send(
-                new ListPartsCommand({
-                    Bucket: this.config.s3_bucket,
-                    Key: fileKey,
-                    UploadId: uploadId
-                })
-            );
+            const input = {
+                Bucket: this.config.s3_bucket,
+                Key: fileKey,
+                UploadId: uploadId
+            }
+
+            const command = new ListPartsCommand(input);
+            const listPartsResponse = await this.client.send(command);
 
             const uploadedPartNumbers = new Set(
-                listPartsResponse.Parts.map((part: any) => part.PartNumber)
+                listPartsResponse.Parts?.map((part: any) => part.PartNumber)
             );
 
             const incompleteParts = [];
@@ -149,7 +168,11 @@ export class MultipartUploadService {
             return incompleteParts;
 
         } catch (error: any) {
-            throw new S3Exception(FILED_TO_FETCH_INCOMPLETE_PARTS, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
     }
    
@@ -159,14 +182,17 @@ export class MultipartUploadService {
         const key = filekey;
 
         try {
-            const response: any = await this.client.send(
-                new ListMultipartUploadsCommand({
-                    Bucket: bucketName,
-                    Prefix: key,
-                    UploadIdMarker: uploadId
-                })
-            )
-            if (response.Uploads.length === 0) {
+
+            const input = {
+                Bucket: bucketName,
+                Prefix: key,
+                UploadIdMarker: uploadId
+            }
+
+            const command = new ListMultipartUploadsCommand(input);
+            const response = await this.client.send(command);
+        
+            if (response.Uploads?.length === 0) {
                 const incompleteData = response.Uploads.find((upload: any) => upload.Key === filekey);
                 return incompleteData ? incompleteData.UploadId : null;
             }
@@ -174,7 +200,11 @@ export class MultipartUploadService {
             return null;
 
         } catch (error: any) {
-            throw new S3Exception(MULTIPART_UPLOAD_ABORTED_FAILED, error.$metadata?.httpStatusCode, error);
+            if (error instanceof S3ServiceException) {
+                let statusCode : StatusCode = error.$metadata.httpStatusCode as StatusCode
+                throw new S3Exception(error.message, statusCode, error);
+            }
+            throw error;
         }
     }
 
