@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.multiPart = void 0;
+const hono_1 = require("hono");
+const multipartUploadController_1 = require("../controllers/multipartUploadController");
+const multipartUploadController = new multipartUploadController_1.MultipartUploadController();
+exports.multiPart = new hono_1.Hono();
+exports.multiPart.post("/start", multipartUploadController.initializeMultipartUpload.bind(multipartUploadController));
+exports.multiPart.post("/urls", multipartUploadController.getMultipartUploadUrls.bind(multipartUploadController));
+exports.multiPart.post("/complete", multipartUploadController.completeMultipartUpload.bind(multipartUploadController));
